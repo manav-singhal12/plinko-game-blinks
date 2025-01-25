@@ -3,7 +3,9 @@
         NextActionPostRequest,
         ActionError,
         CompletedAction,
-        MEMO_PROGRAM_ID
+        MEMO_PROGRAM_ID,
+        ActionPostResponse,
+        createPostResponse
     } from "@solana/actions";
     import {
         clusterApiUrl,
@@ -14,6 +16,7 @@
         TransactionInstruction,
         LAMPORTS_PER_SOL,
         Keypair,
+        ComputeBudgetProgram,
     } from "@solana/web3.js";
     
     // Create headers for this route (including CORS)
@@ -66,48 +69,47 @@
                     headers
                 });
             }
-    
+    const url= new URL(req.url);
+    const amount= url.searchParams.get("amount");
             const connection = new Connection(
                 process.env.SOLANA_RPC || clusterApiUrl("devnet")
             );
     
-            // Confirm the previous transaction
-            const signature = body.signature;
-            if (!signature) {
-                throw 'Invalid "signature" provided';
-            }   
-    
-            const status = await connection.getSignatureStatus(signature);
-            if (
-                !status ||
-                !status.value ||
-                !status.value.confirmationStatus ||
-                !['confirmed', 'finalized'].includes(status.value.confirmationStatus)
-            ) {
-                throw "Unable to confirm the transaction";
-            }
-    
-            // Get transaction details to determine game result
-            const transaction = await connection.getParsedTransaction(signature, "confirmed");
-            if (!transaction?.meta?.logMessages) {
-                throw "Unable to fetch transaction details";
-            }
-    
-            // Parse game result from memo
-            const memoLog = transaction.meta.logMessages.find(log => log.includes('Plinko Game'));
-            if (!memoLog) throw "Invalid game transaction";
-    
-            // const result = memoLog.includes('Result: win') ? 'win' : memoLog.includes('Result: draw') ? 'draw' : 'lose';
-            const amount = parseFloat(memoLog.match(/Amount: ([\d.]+) SOL/)?.[1] || '0');
-    
+            const web3 = require("@solana/web3.js");
+    const sender=gameWallet;
+
+    const transaction = new Transaction().add(
+      // note: `createPostResponse` requires at least 1 non-memo instruction
+      ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: 1000,
+      }),
+      new TransactionInstruction({
+        programId: new PublicKey(MEMO_PROGRAM_ID),
+        data: Buffer.from(
+          `User won ${amount} SOL`,
+          "utf8"
+        ),
+        keys: [],
+      })
+    );
+    // set the end user as the fee payer
+    transaction.feePayer = account;
+
+    // Get the latest Block Hash
+    transaction.recentBlockhash = (
+      await connection.getLatestBlockhash()
+    ).blockhash;
+        
+            
             // Return completed action for losses
-                const payload: CompletedAction = {
-                    type: "completed",
-                    title: "Game Over!",
-                    icon: new URL("/0sol1.gif", new URL(req.url).origin).toString(),
-                    label: "Better luck next time!",
-                    description: "You lost this round. Try again!",
-                };
+                const payload: ActionPostResponse = await createPostResponse({
+                    fields: {
+                      type: "transaction",
+                      transaction,
+                      message: `You lost, Play again!`,
+                    },
+                  });
+              
                 return Response.json(payload, { headers });
             
     

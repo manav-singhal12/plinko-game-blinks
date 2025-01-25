@@ -36,11 +36,6 @@ function determineWinner(): 'win' | 'lose' | 'draw' {
     
 }
  
-// Generate bot move
-// function generateBotMove(): string {
-//     const moves = ['R', 'P', 'S'];
-//     return moves[Math.floor(Math.random() * moves.length)];
-// }
  
 export const GET = async (req: Request) => {
     const payload: ActionGetResponse = {
@@ -111,7 +106,7 @@ export const POST = async (req: Request) => {
                 headers
             });
         }
- 
+        const transaction = new Transaction();
         const connection = new Connection(
             process.env.SOLANA_RPC || clusterApiUrl('devnet')
         );
@@ -138,37 +133,89 @@ export const POST = async (req: Request) => {
         // Get latest blockhash
         const { blockhash } = await connection.getLatestBlockhash();
  
-        // Create transaction
-        const transaction = new Transaction()
-            .add(memoInstruction) // Add memo to transaction to record game play onchain
-            .add(paymentInstruction); // Actual transaction
- 
-        transaction.feePayer = account;
-        transaction.recentBlockhash = blockhash;
- 
-        // Create response using createPostResponse helper
+       
+        transaction.add(
+            new TransactionInstruction({
+              programId: new PublicKey(MEMO_PROGRAM_ID),
+              data: Buffer.from(
+                `User chose  with bet ${amount} SOL`,
+                "utf8"
+              ),
+              keys: [],
+            })
+          );
+          transaction.add(SystemProgram.transfer({
+            fromPubkey: account,
+            toPubkey: GAME_WALLET,
+            lamports: Number(amount) * LAMPORTS_PER_SOL,
+          }));
+    
+          // set the end user as the fee payer
+          transaction.feePayer = account;
+    
+          // Get the latest Block Hash
+          transaction.recentBlockhash = (
+            await connection.getLatestBlockhash()
+          ).blockhash;
+    
         // Chain to reward route if win/draw
+        let image: string = "1sol1.gif";
         let res='draw'
             if (result === 'win') {
                 res='win';
+                image="2sol1.gif";
             } 
             else if (result === 'lose') {
                 res='lost';
+                image="0sol1.gif";
             }
+            // res='lost';
+            // image="0sol1.gif";
+         console.log(body);
+         console.log("treansaction",transaction);
+         const payload: ActionPostResponse =(res==='lose')? await createPostResponse({
          
-        const payload: ActionPostResponse = await createPostResponse({
+                fields: {
+                    type: "transaction",
+                    transaction,
+                    message: `Sorry you Lost, Play again!`,
+                    links: {
+                      next: {
+                        type: "post",
+                        href: `/api/actions/plinko/lost?amount=${amount}`,
+                        
+                      },
+                    },
+                  },
+                  signers: [],
+                }):await createPostResponse({
+            
             fields: {
                 type: 'transaction',
                 transaction,
                 message: `Result: ${result}`,
-                links: {
-                    next: {
-                        type: 'post',
-                        href: `/api/actions/plinko/playing`,
-                    },
-                },
+                links:{
+                next: {
+                    type: 'inline',
+                    action: {
+                        type: "action",
+                        title: `Plinko Game ${res}`,
+                        icon: new URL(`${image}`, new URL(req.url).origin).toString(),
+                        description: ``,
+                        label: "Plinko Game",
+                        "links": {
+                          "actions": [
+                            {
+                              "label": "Claim Prize!", // button text
+                              "href": `/api/actions/plinko/${res}?amount=${amount}`, // route to reward logic
+                              type: "transaction"
+                            }
+                          ]
+                        }
+                      },
+                },},
             },
-        });
+        })
         return Response.json(payload, { headers });
  
     } catch (err) {
@@ -183,16 +230,3 @@ export const POST = async (req: Request) => {
     }
 };
 
-// const payload: ActionPostResponse = await createPostResponse({
-//     fields: {
-//         type: 'transaction',
-//         transaction,
-//         message: `Result: ${result}`,
-//         links: {
-//             next: {
-//                 type: 'post',
-//                 href: `/api/actions/plinko/playing`,
-//             },
-//         },
-//     },
-// });

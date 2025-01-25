@@ -1,9 +1,12 @@
+  
     import {
         createActionHeaders,
         NextActionPostRequest,
         ActionError,
         CompletedAction,
-        MEMO_PROGRAM_ID
+        MEMO_PROGRAM_ID,
+        ActionPostResponse,
+        createPostResponse
     } from "@solana/actions";
     import {
         clusterApiUrl,
@@ -14,8 +17,10 @@
         TransactionInstruction,
         LAMPORTS_PER_SOL,
         Keypair,
+        ComputeBudgetProgram,
     } from "@solana/web3.js";
     
+    import bs58 from 'bs58';
     // Create headers for this route (including CORS)
     const headers = createActionHeaders({
         chainId: 'devnet',
@@ -54,7 +59,8 @@
     export const POST = async (req: Request) => {
         try {
             const body: NextActionPostRequest = await req.json();
-    
+            const url = new URL(req.url);
+            const amount = url.searchParams.get("amount");
             // Validate account
             let account: PublicKey;
             try {
@@ -71,91 +77,51 @@
                 process.env.SOLANA_RPC || clusterApiUrl("devnet")
             );
     
-            // Confirm the previous transaction
-            const signature = body.signature;
-            if (!signature) {
-                throw 'Invalid "signature" provided';
-            }   
-    
-            const status = await connection.getSignatureStatus(signature);
-            if (
-                !status ||
-                !status.value ||
-                !status.value.confirmationStatus ||
-                !['confirmed', 'finalized'].includes(status.value.confirmationStatus)
-            ) {
-                throw "Unable to confirm the transaction";
-            }
-    
-            // Get transaction details to determine game result
-            const transaction = await connection.getParsedTransaction(signature, "confirmed");
-            if (!transaction?.meta?.logMessages) {
-                throw "Unable to fetch transaction details";
-            }
-    
-            // Parse game result from memo
-            const memoLog = transaction.meta.logMessages.find(log => log.includes('Plinko Game'));
-            if (!memoLog) throw "Invalid game transaction";
-    
-            // const result = memoLog.includes('Result: win') ? 'win' : memoLog.includes('Result: draw') ? 'draw' : 'lose';
-            const amount = parseFloat(memoLog.match(/Amount: ([\d.]+) SOL/)?.[1] || '0');
-    
-            // Return completed action for losses
-            // if (result === 'lose') {
-            //     const payload: CompletedAction = {
-            //         type: "completed",
-            //         title: "Game Over!",
-            //         icon: new URL("/Plinko-game-image-001.jpeg", new URL(req.url).origin).toString(),
-            //         label: "Better luck next time!",
-            //         description: "You lost this round. Try again!",
-            //     };
-            //     return Response.json(payload, { headers });
-            // }
+            
+           
     
             // Process reward for wins/draws
-            const reward =  amount ;
-            const rewardTx = new Transaction().add(
-                new TransactionInstruction({
-                    keys: [],
-                    programId: new PublicKey(MEMO_PROGRAM_ID),
-                    data: Buffer.from(
-                        `Plinko Reward | WIN | Sent ${reward} SOL`,
-                        'utf-8'
-                    ),
-                }),
-                SystemProgram.transfer({
-                    fromPubkey: gameWallet.publicKey,
-                    toPubkey: account,
-                    lamports: reward * LAMPORTS_PER_SOL,
-                })
+            const reward =  Number(amount) ;
+            const web3 = require("@solana/web3.js");
+            // const sender = Keypair.fromSecretKey(bs58.decode(process.env.GAME_WALLET_PRIVATE_KEY!));
+            const sender= gameWallet;
+        
+            const transaction = new Transaction().add(
+              // note: `createPostResponse` requires at least 1 non-memo instruction
+              ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 1000,
+              }),
+              new TransactionInstruction({
+                programId: new PublicKey(MEMO_PROGRAM_ID),
+                data: Buffer.from(
+                  `User won ${amount} SOL`,
+                  "utf8"
+                ),
+                keys: [],
+              })
             );
-    
-            const { blockhash } = await connection.getLatestBlockhash();
-            rewardTx.feePayer = gameWallet.publicKey;
-            rewardTx.recentBlockhash = blockhash;
-            rewardTx.sign(gameWallet);
-    
-            // Send the transaction
-            const rawTransaction = rewardTx.serialize();
-            const txId = await connection.sendRawTransaction(rawTransaction, {
-                skipPreflight: false,
-                preflightCommitment: "processed",
-            });
-    
-            // Use the new transaction confirmation strategy
-            await connection.confirmTransaction({
-                signature: txId,
-                blockhash,
-                lastValidBlockHeight: (await connection.getLatestBlockhash()).lastValidBlockHeight
-            }, "processed");
-    
-            const payload: CompletedAction = {
-                type: "completed",
-                title:  "Game Draw" ,
-                icon: new URL("/1sol1.gif", new URL(req.url).origin).toString(),
-                label: "Reward Sent!",
-                description: ` 'You won! '${reward} SOL has been sent to your wallet.`,
-            };
+            transaction.add(web3.SystemProgram.transfer({
+              fromPubkey: sender.publicKey,
+              toPubkey: account,
+              lamports: Number(reward) * LAMPORTS_PER_SOL,
+            }));
+            // set the end user as the fee payer
+            transaction.feePayer = account;
+        
+            // Get the latest Block Hash
+            transaction.recentBlockhash = (
+              await connection.getLatestBlockhash()
+            ).blockhash;
+        
+            const payload: ActionPostResponse = await createPostResponse({
+                fields: {
+                  type: "transaction",
+                  transaction,
+                  message: `${reward} SOL sent to your account, Play again!`,
+                },
+                // no additional signers are required for this transaction
+                signers: [sender],
+              });
     
             return Response.json(payload, { headers });
         } catch (err) {
@@ -168,3 +134,4 @@
             });
         }
     };
+
