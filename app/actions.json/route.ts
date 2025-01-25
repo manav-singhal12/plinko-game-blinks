@@ -10,7 +10,7 @@ export const GET = async () => {
       // map all root level routes to an action
       {
         pathPattern: "/*",
-        apiPath: "/api/actions/*",
+        apiPath: "/api/actions/plinko/*",
       },
       // idempotent rule as the fallback
       /*
@@ -19,8 +19,8 @@ export const GET = async () => {
       URI or performing additional response testing.
       */
       {
-        pathPattern: "/api/actions/**",
-        apiPath: "/api/actions/**",
+        pathPattern: "/api/actions/plinko/**",
+        apiPath: "/api/actions/plinko/**",
       },
     ],
   };

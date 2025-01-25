@@ -75,7 +75,9 @@
             );
     
             // Confirm the previous transaction
+            console.log(body);
             const signature = body.signature;
+            console.log(signature);
             if (!signature) {
                 throw 'Invalid "signature" provided';
             }   

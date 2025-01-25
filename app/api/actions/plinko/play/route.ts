@@ -91,6 +91,7 @@ export const POST = async (req: Request) => {
         const amount = parseFloat(url.searchParams.get('amount') || '0');
         const body: ActionPostRequest = await req.json();
  
+        console.log(body);
         // Validate inputs
         if (!amount || amount <= 0) {
             return Response.json({ error: 'Invalid bet amount' }, {
@@ -163,7 +164,7 @@ export const POST = async (req: Request) => {
                 links: {
                     next: {
                         type: 'post',
-                        href: `/api/actions/plinko/draw`,
+                        href: `/api/actions/plinko/playing`,
                     },
                 },
             },
@@ -181,3 +182,17 @@ export const POST = async (req: Request) => {
         });
     }
 };
+
+// const payload: ActionPostResponse = await createPostResponse({
+//     fields: {
+//         type: 'transaction',
+//         transaction,
+//         message: `Result: ${result}`,
+//         links: {
+//             next: {
+//                 type: 'post',
+//                 href: `/api/actions/plinko/playing`,
+//             },
+//         },
+//     },
+// });
