@@ -24,7 +24,7 @@ const headers = createActionHeaders({
   });
  
 // Game wallet to receive/send SOL
-const GAME_WALLET = new PublicKey('EqkEhUr7832poEPo4sPsysntQ3r9EJL1dC3iYAZB5KF5');
+const GAME_WALLET = new PublicKey('');
  
  
 // Helper function to determine winner
