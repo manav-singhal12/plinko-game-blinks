@@ -77,13 +77,76 @@
                 process.env.SOLANA_RPC || clusterApiUrl("devnet")
             );
     
+            
+           
     
             // Process reward for wins/draws
-            const reward =  Number(amount) * 2;
+            const reward =  Number(amount) *2; 
             const web3 = require("@solana/web3.js");
-            // const sender = Keypair.fromSecretKey(bs58.decode(process.env.GAME_WALLET_PRIVATE_KEY!));
             const sender= gameWallet;
         
+
+            // Exchanging Tokens Code 
+
+             // const TOKENS = {
+    //     USDC: new PublicKey("SENDdRQtYMWaQrBroBrJ2Q53fgVuq95CV9UPGEvpCxa"),
+    //     SOL: new PublicKey("So11111111111111111111111111111111111111112"),
+    //   };
+      
+    //   const JUP_API = "https://quote-api.jup.ag/v6";
+    
+    //     console.log(`Swapping ${amount} SOL to USDC for ${account.toString()}`);
+    
+    //     // Convert SOL amount to lamports
+    //     const scaledAmount =Number(amount) * LAMPORTS_PER_SOL;
+    
+    //     // Get a quote from the Jupiter API
+    //     const response = await fetch(
+    //         `${JUP_API}/quote?inputMint=${TOKENS.SOL.toString()}&outputMint=${TOKENS.USDC.toString()}&amount=${scaledAmount}&dynamicSlippage=true`
+    //       );
+    //       const quoteResponse = await response.json();
+
+    //       console.log("Jupiter Quote Response:", quoteResponse);
+    //     if (!quoteResponse || !quoteResponse.outAmount) {
+    //       throw new Error("Invalid quote response from Jupiter API.");
+    //     }
+    
+    //     console.log("Jupiter Quote:", quoteResponse);
+    
+    //     // Send swap transaction to Jupiter API
+    //     const swapResponse = await fetch(`${JUP_API}/swap`, {
+    //       method: "POST",
+    //       headers: { "Content-Type": "application/json" },
+    //       body: JSON.stringify({
+    //         quoteResponse,
+    //         userPublicKey: account.toString(),
+    //         wrapAndUnwrapSol: true,
+    //         dynamicComputeUnitLimit: true,
+    //         dynamicSlippage: true,
+    //       }),
+    //     }).then((res) => res.json());
+    // console.log("SP",swapResponse)
+    //     if (!swapResponse.swapTransaction) {
+    //       throw new Error("Swap transaction not received from Jupiter API.");
+    //     }
+    //     console.log("Transaction:",swapResponse.swapTransaction);
+
+
+    //     console.log("Swap Successful! ");
+    //     const simulate = await connection.simulateTransaction(transaction);
+    //     const isError = simulate.value.err != null;
+    //     if (isError) {
+    //         throw new Error("Transaction failed: " + simulate.value.err);
+    //     }
+    
+    
+    //     const { swapInstruction: swapInstructionPayload } = swapResponse;
+
+
+
+
+
+
             const transaction = new Transaction().add(
               // note: `createPostResponse` requires at least 1 non-memo instruction
               ComputeBudgetProgram.setComputeUnitPrice({
@@ -110,11 +173,9 @@
             transaction.recentBlockhash = (
               await connection.getLatestBlockhash()
             ).blockhash;
-        
+        // console.log("Transaction",transaction);
             const payload: ActionPostResponse = await createPostResponse({
                 fields: {
-                   
-
                   type: "transaction",
                   transaction,
                   message: `${reward} SOL sent to your account, Play again!`,
@@ -134,4 +195,3 @@
             });
         }
     };
-
