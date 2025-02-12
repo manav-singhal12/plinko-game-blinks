@@ -181,9 +181,9 @@ export const POST = async (req: Request) => {
         }
 
         //for checking
-        displaynum=1;
-        res='lost';
-        image="2sol1.gif";
+        // displaynum=1;
+        // res='lost';
+        // image="2sol1.gif";
         // console.log(body);
         // console.log("treansaction", transaction);
         const payload: ActionPostResponse = (res === 'lost') ? await createPostResponse({
